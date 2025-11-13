@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">FantasyStreams</string>
+    <string name="league_id_hint">League ID</string>
+    <string name="league_name_hint">League Name</string>
+    <string name="team_name_hint">Team Name</string>
+    <string name="submit_button_text">Go</string>
+    <string name="app_title">FantasyStreams</string>
+    <string name="welcome_message">Welcome, %1$s!</string>
+    <!-- This is your new error message -->
+    <string name="league_not_found_error">Review League ID/Name, or visit fantasystreams.app to initialize the league.</string>
+</resources>
