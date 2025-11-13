@@ -13,18 +13,26 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import okhttp3.Call
 import okhttp3.Callback
-import okhttp3.JavaNetCookieJar
+// --- [START] MODIFIED IMPORTS ---
+// We need these classes for the custom CookieJar
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
+// This is the correct CookieManager used by the WebView
+import android.webkit.CookieManager
+// --- [END] MODIFIED IMPORTS ---
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
-import java.net.CookieManager
+// --- [REMOVED] java.net.CookieManager ---
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+
 
 class LeagueHomeActivity : AppCompatActivity() {
 
@@ -37,11 +45,13 @@ class LeagueHomeActivity : AppCompatActivity() {
     private lateinit var contentContainer: LinearLayout
     private lateinit var updatePromptText: TextView
 
-    // The OkHttp client will automatically use the cookies set by the WebView
-    // because both will use the app's shared CookieManager.
+    // --- [START] MODIFIED CLIENT ---
+    // The OkHttp client, configured with our custom WebViewCookieJar,
+    // will now read cookies from the shared android.webkit.CookieManager.
     private val client = OkHttpClient.Builder()
-        .cookieJar(JavaNetCookieJar(CookieManager()))
+        .cookieJar(WebViewCookieJar())
         .build()
+    // --- [END] MODIFIED CLIENT ---
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -204,3 +214,35 @@ class LeagueHomeActivity : AppCompatActivity() {
         }
     }
 }
+
+// --- [START] NEW HELPER CLASS ---
+/**
+ * A custom OkHttp CookieJar that bridges with the Android WebView's
+ * shared CookieManager. This allows OkHttp requests to send the
+ * session cookies that were set inside the WebView.
+ */
+class WebViewCookieJar : CookieJar {
+
+    private val cookieManager = CookieManager.getInstance()
+
+    override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        val cookiesString = cookieManager.getCookie(url.toString())
+        if (cookiesString != null && cookiesString.isNotEmpty()) {
+            // Manually parse the cookie string
+            return cookiesString.split(";").mapNotNull { cookieString ->
+                Cookie.parse(url, cookieString.trim())
+            }
+        }
+        return emptyList()
+    }
+
+    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
+        val urlString = url.toString()
+        cookies.forEach { cookie ->
+            cookieManager.setCookie(urlString, cookie.toString())
+        }
+        // Persist the cookies
+        cookieManager.flush()
+    }
+}
+// --- [END] NEW HELPER CLASS ---
