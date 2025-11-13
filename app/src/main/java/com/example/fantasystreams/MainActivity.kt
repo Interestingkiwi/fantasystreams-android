@@ -1,126 +1,153 @@
 package com.example.fantasystreams
 
+import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.View
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
-import android.widget.EditText
 import android.widget.ProgressBar
-import android.widget.Toast
+import android.widget.TextView
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONObject
-import java.io.IOException
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : AppCompatActivity() {
 
-    // IMPORTANT: Change this to your server's IP address or domain.
-    // If running on a local network, use your computer's local IP (e.g., "192.168.1.5").
-    // "127.0.0.1" or "localhost" will NOT work from the Android emulator.
-    private val serverUrl = "https://fantasystreams.app" 
-    private val client = OkHttpClient()
-
-    private lateinit var leagueIdInput: EditText
-    private lateinit var leagueNameInput: EditText
-    private lateinit var teamNameInput: EditText
-    private lateinit var submitButton: Button
+    private lateinit var webView: WebView
     private lateinit var loadingSpinner: ProgressBar
+    private lateinit var errorText: TextView
+    private lateinit var retryButton: Button
 
+    // This is the new mobile-specific login route
+    private val loginUrl by lazy {
+        getString(R.string.server_url) + "/mobile_login"
+    }
+    // This is the page we expect to land on after a successful login
+    private val homeUrl by lazy {
+        getString(R.string.server_url) + "/home"
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
-
-        // Get references to the UI elements
-        leagueIdInput = findViewById(R.id.league_id_input)
-        leagueNameInput = findViewById(R.id.league_name_input)
-        teamNameInput = findViewById(R.id.team_name_input)
-        submitButton = findViewById(R.id.submit_button)
-        loadingSpinner = findViewById(R.id.loading_spinner)
-
-        // Set a click listener on the button
-        submitButton.setOnClickListener {
-            val leagueId = leagueIdInput.text.toString()
-            val leagueName = leagueNameInput.text.toString()
-            val teamName = teamNameInput.text.toString()
-
-            if (leagueId.isNotEmpty() && leagueName.isNotEmpty() && teamName.isNotEmpty()) {
-                // Show loading spinner and hide button text
-                setLoadingState(true)
-                // Launch background task to check league
-                checkLeagueFile(leagueId, leagueName, teamName)
-            } else {
-                showToast("Please fill out all fields")
-            }
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+            insets
         }
-    }
 
-    private fun checkLeagueFile(leagueId: String, leagueName: String, teamName: String) {
-        // Use Kotlin Coroutines to move networking off the main (UI) thread
-        lifecycleScope.launch(Dispatchers.IO) {
-            val requestUrl = "$serverUrl/api/check_league?id=$leagueId&name=$leagueName"
-            val request = Request.Builder().url(requestUrl).build()
+        webView = findViewById(R.id.webView)
+        loadingSpinner = findViewById(R.id.loadingSpinner)
+        errorText = findViewById(R.id.errorText)
+        retryButton = findViewById(R.id.retryButton)
 
-            try {
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) throw IOException("Unexpected code $response")
+        // Clear all cookies (like old sessions) for a clean login
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
 
-                    val responseBody = response.body?.string()
-                    val json = JSONObject(responseBody ?: "")
+        // Configure WebView
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.webChromeClient = WebChromeClient() // Handles alerts, etc.
+        webView.webViewClient = object : WebViewClient() {
 
-                    if (json.optBoolean("exists", false)) {
-                        // File exists! Navigate to new screen
-                        // Must run UI code back on the main thread
-                        withContext(Dispatchers.Main) {
-                            setLoadingState(false)
-                            navigateToLeagueHome(leagueName, teamName)
-                        }
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                Log.i("MainActivity", "Page finished loading: $url")
+
+                // As soon as the page finishes, check if it's the home URL
+                if (url != null && url.startsWith(homeUrl)) {
+                    // SUCCESS! We are at the home page.
+                    // The server has set the session cookie.
+                    // Now we intercept the league_id and league_name.
+
+                    val uri = Uri.parse(url)
+                    val leagueId = uri.getQueryParameter("league_id")
+                    val leagueName = uri.getQueryParameter("league_name")
+
+                    if (leagueId != null && leagueName != null) {
+                        Log.i("MainActivity", "Login success! League ID: $leagueId, Name: $leagueName")
+                        // Hide WebView, show spinner (briefly)
+                        webView.visibility = View.INVISIBLE
+                        loadingSpinner.visibility = View.VISIBLE
+                        // Proceed to the main app activity
+                        navigateToLeagueHome(leagueId, leagueName)
                     } else {
-                        // File doesn't exist
-                        withContext(Dispatchers.Main) {
-                            setLoadingState(false)
-                            // Use the new, specific error string
-                            showToast(getString(R.string.league_not_found_error))
-                        }
+                        Log.w("MainActivity", "On /home page but missing league params.")
+                        showError("Login succeeded but could not get league info. Please retry.")
                     }
+                } else {
+                    // Not on the home page, so show the WebView
+                    loadingSpinner.visibility = View.GONE
+                    webView.visibility = View.VISIBLE
                 }
-            } catch (e: Exception) {
-                // Handle network errors
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    setLoadingState(false)
-                    showToast("Error connecting to server")
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                // Don't show an error for non-main-frame requests (like failed images)
+                if (request?.isForMainFrame == true) {
+                    val errorMsg = "Error: ${error?.description}"
+                    Log.e("MainActivity", "WebView Error: $errorMsg (Code: ${error?.errorCode})")
+                    showError(errorMsg)
                 }
             }
         }
+
+        // Set up the retry button
+        retryButton.setOnClickListener {
+            loadLoginUrl()
+        }
+
+        // Start the login process
+        loadLoginUrl()
     }
 
-    private fun navigateToLeagueHome(leagueName: String, teamName: String) {
+    private fun loadLoginUrl() {
+        Log.i("MainActivity", "Loading login URL: $loginUrl")
+        showLoading()
+        webView.loadUrl(loginUrl)
+    }
+
+    private fun navigateToLeagueHome(leagueId: String, leagueName: String) {
+        // Save the session cookie. This is critical.
+        CookieManager.getInstance().flush()
+
         val intent = Intent(this, LeagueHomeActivity::class.java).apply {
-            putExtra("LEAGUE_NAME", leagueName)
-            putExtra("TEAM_NAME", teamName)
+            putExtra("league_id", leagueId)
+            putExtra("league_name", leagueName)
         }
         startActivity(intent)
+        finish() // Close the login activity
     }
 
-    private fun setLoadingState(isLoading: Boolean) {
-        if (isLoading) {
-            loadingSpinner.visibility = View.VISIBLE
-            submitButton.text = "" // Hide button text
-            submitButton.isEnabled = false
-        } else {
-            loadingSpinner.visibility = View.GONE
-            submitButton.text = getString(R.string.submit_button_text) // Restore text
-            submitButton.isEnabled = true
-        }
+    private fun showLoading() {
+        loadingSpinner.visibility = View.VISIBLE
+        webView.visibility = View.INVISIBLE
+        errorText.visibility = View.GONE
+        retryButton.visibility = View.GONE
     }
 
-    private fun showToast(message: String) {
-        // Use LENGTH_LONG to give the user time to read the longer error message
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    private fun showError(message: String) {
+        loadingSpinner.visibility = View.GONE
+        webView.visibility = View.INVISIBLE
+        errorText.text = message
+        errorText.visibility = View.VISIBLE
+        retryButton.visibility = View.VISIBLE
     }
 }

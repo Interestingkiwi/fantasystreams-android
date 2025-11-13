@@ -8,4 +8,16 @@
     <string name="welcome_message">Welcome, %1$s!</string>
     <!-- This is your new error message -->
     <string name="league_not_found_error">Review League ID/Name, or visit fantasystreams.app to initialize the league.</string>
+    <string name="server_url">https://fantasystreams.app</string>
+    <!-- League Home Page -->
+    <string name="league_name_placeholder">Loading League...</string>
+    <string name="last_updated_placeholder">...</string>
+    <string name="last_updated_prefix">Last Updated: %1$s</string>
+    <string name="checking_db_status">Checking database status...</string>
+    <string name="refresh_status">Refresh Status</string>
+    <string name="database_is_ready">Database is Ready</string>
+    <string name="update_prompt">To get new data, please visit the website on your computer and run an update.</string>
+    <string name="loading_league">Loading League...</string>
+    <string name="error">Error</string>
+    <string name="no_database_found">No Database Found</string>
 </resources>

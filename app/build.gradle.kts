@@ -46,6 +46,7 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.5.1")
-    implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp-urlconnection:4.12.0")
 }

@@ -8,6 +8,8 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="grey">#AEAEAE</color>
+    <color name="light_green">#90EE90</color>
 
     <!-- Custom App Theme Colors -->
     <color name="app_background">#222222</color>
