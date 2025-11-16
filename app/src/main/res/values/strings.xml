@@ -20,4 +20,6 @@
     <string name="loading_league">Loading League...</string>
     <string name="error">Error</string>
     <string name="no_database_found">No Database Found</string>
+    <string name="nav_open">Open navigation drawer</string>
+    <string name="nav_close">Close navigation drawer</string>
 </resources>

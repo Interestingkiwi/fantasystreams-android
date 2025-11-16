@@ -2,15 +2,23 @@ package com.example.fantasystreams
 
 import android.os.Bundle
 import android.util.Log
+import android.view.MenuItem // <-- [ADD] Import MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.content.Intent
+import android.widget.Toast // <-- [ADD] Import Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.ActionBarDrawerToggle // <-- [ADD] Import
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar // <-- [ADD] Import
+import androidx.core.view.GravityCompat // <-- [ADD] Import
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.drawerlayout.widget.DrawerLayout // <-- [ADD] Import
+import com.google.android.material.navigation.NavigationView //
 import okhttp3.Call
 import okhttp3.Callback
 // --- [START] MODIFIED IMPORTS ---
@@ -34,7 +42,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 
-class LeagueHomeActivity : AppCompatActivity() {
+class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     private var leagueId: String? = null
     private lateinit var leagueNameText: TextView
@@ -44,6 +52,9 @@ class LeagueHomeActivity : AppCompatActivity() {
     private lateinit var refreshButton: Button
     private lateinit var contentContainer: LinearLayout
     private lateinit var updatePromptText: TextView
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var navigationView: NavigationView
+    private lateinit var toolbar: Toolbar
 
     // --- [START] MODIFIED CLIENT ---
     // The OkHttp client, configured with our custom WebViewCookieJar,
@@ -57,11 +68,30 @@ class LeagueHomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContentView(R.layout.activity_league_home)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.content_root)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            // This now applies padding to the LinearLayout, pushing the Toolbar
+            // and content down, out from under the status bar.
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+
+        toolbar = findViewById(R.id.toolbar)
+        setSupportActionBar(toolbar)
+
+        drawerLayout = findViewById(R.id.main) // This is the DrawerLayout
+        navigationView = findViewById(R.id.nav_view)
+        navigationView.setNavigationItemSelectedListener(this)
+
+        val toggle = ActionBarDrawerToggle(
+            this,
+            drawerLayout,
+            toolbar,
+            R.string.nav_open,
+            R.string.nav_close
+        )
+        drawerLayout.addDrawerListener(toggle)
+        toggle.syncState()
 
         // Initialize views
         leagueNameText = findViewById(R.id.leagueNameText)
@@ -89,7 +119,61 @@ class LeagueHomeActivity : AppCompatActivity() {
             }
         }
     }
+    override fun onNavigationItemSelected(item: MenuItem): Boolean {
+        // Handle navigation view item clicks here.
+        when (item.itemId) {
+            R.id.nav_league_database -> {
+                Toast.makeText(this, "League Database clicked", Toast.LENGTH_SHORT).show()
+            }
+            R.id.nav_matchup -> {
+                Toast.makeText(this, "Matchup clicked", Toast.LENGTH_SHORT).show()
+            }
+            R.id.nav_lineups -> {
+                Toast.makeText(this, "Lineups clicked", Toast.LENGTH_SHORT).show()
+            }
+            R.id.nav_free_agents -> {
+                Toast.makeText(this, "Free Agents clicked", Toast.LENGTH_SHORT).show()
+            }
+            R.id.nav_goalie_planning -> {
+                Toast.makeText(this, "Goalie Planning clicked", Toast.LENGTH_SHORT).show()
+            }
+            R.id.nav_trade_helper -> {
+                Toast.makeText(this, "Trade Helper clicked", Toast.LENGTH_SHORT).show()
+            }
+            R.id.nav_schedule_insights -> {
+                Toast.makeText(this, "Schedule Insights clicked", Toast.LENGTH_SHORT).show()
+            }
+            R.id.nav_season_history -> {
+                Toast.makeText(this, "Season History clicked", Toast.LENGTH_SHORT).show()
+            }
+            R.id.nav_logout -> {
+                // 1. Clear all cookies (this logs the user out)
+                CookieManager.getInstance().removeAllCookies(null)
+                CookieManager.getInstance().flush()
 
+                // 2. Go back to MainActivity (login screen)
+                val intent = Intent(this, MainActivity::class.java)
+
+                // 3. Set flags to clear the back-stack
+                // This prevents the user from hitting "back" and returning to this activity
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+
+                startActivity(intent)
+                finish() // Close this LeagueHomeActivity
+            }
+        }
+
+        drawerLayout.closeDrawer(GravityCompat.START)
+        return true
+    }
+
+    override fun onBackPressed() {
+        if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+            drawerLayout.closeDrawer(GravityCompat.START)
+        } else {
+            super.onBackPressed()
+        }
+    }
     private fun fetchDatabaseStatus(leagueId: String) {
         // Set UI to loading state
         runOnUiThread {

@@ -1,17 +1,21 @@
-<resources xmlns:tools="[http://schemas.android.com/tools](http://schemas.android.com/tools)">
-    <!-- Base application theme. -->
+<resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Base.Theme.FantasyStreams" parent="Theme.Material3.Dark.NoActionBar">
-        <!-- Force Dark Mode -->
         <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
 
-        <!-- Set our custom background color -->
         <item name="android:colorBackground">@color/app_background</item>
 
-        <!-- Set our custom primary color (used for buttons, etc.) -->
         <item name="colorPrimary">@color/button_blue</item>
         <item name="colorPrimaryVariant">@color/button_blue</item>
         <item name="colorOnPrimary">@color/text_white</item>
+
+        <item name="drawerArrowStyle">@style/App.DrawerArrowStyle</item>
     </style>
 
+
     <style name="Theme.FantasyStreams" parent="Base.Theme.FantasyStreams" />
+
+    <style name="App.DrawerArrowStyle" parent="Widget.AppCompat.DrawerArrowToggle">
+        <item name="color">@color/text_white</item>
+    </style>
+
 </resources>

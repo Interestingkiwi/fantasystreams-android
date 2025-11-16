@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_league_database"
+            android:title="League Database" />
+        <item
+            android:id="@+id/nav_matchup"
+            android:title="Matchup" />
+        <item
+            android:id="@+id/nav_lineups"
+            android:title="Lineups" />
+        <item
+            android:id="@+id/nav_free_agents"
+            android:title="Free Agents" />
+        <item
+            android:id="@+id/nav_goalie_planning"
+            android:title="Goalie Planning" />
+        <item
+            android:id="@+id/nav_trade_helper"
+            android:title="Trade Helper" />
+        <item
+            android:id="@+id/nav_schedule_insights"
+            android:title="Schedule Insights" />
+        <item
+            android:id="@+id/nav_season_history"
+            android:title="Season History" />
+    </group>
+
+    <item android:title="Account">
+        <menu>
+            <item
+                android:id="@+id/nav_logout"
+                android:title="Logout" />
+        </menu>
+    </item>
+
+</menu>
