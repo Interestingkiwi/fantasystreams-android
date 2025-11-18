@@ -21,29 +21,27 @@ import androidx.drawerlayout.widget.DrawerLayout // <-- [ADD] Import
 import com.google.android.material.navigation.NavigationView //
 import okhttp3.Call
 import okhttp3.Callback
-// --- [START] MODIFIED IMPORTS ---
-// We need these classes for the custom CookieJar
-import okhttp3.Cookie
-import okhttp3.CookieJar
-import okhttp3.HttpUrl
-// This is the correct CookieManager used by the WebView
-import android.webkit.CookieManager
-// --- [END] MODIFIED IMPORTS ---
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
-// --- [REMOVED] java.net.CookieManager ---
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import com.example.fantasystreams.ui.matchup.MatchupScreen
+import javax.inject.Inject
+import android.webkit.CookieManager
 
 
+@AndroidEntryPoint
 class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
-
+    @Inject lateinit var client: OkHttpClient
     private var leagueId: String? = null
     private lateinit var leagueNameText: TextView
     private lateinit var lastUpdatedText: TextView
@@ -56,13 +54,6 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
     private lateinit var navigationView: NavigationView
     private lateinit var toolbar: Toolbar
 
-    // --- [START] MODIFIED CLIENT ---
-    // The OkHttp client, configured with our custom WebViewCookieJar,
-    // will now read cookies from the shared android.webkit.CookieManager.
-    private val client = OkHttpClient.Builder()
-        .cookieJar(WebViewCookieJar())
-        .build()
-    // --- [END] MODIFIED CLIENT ---
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,13 +111,24 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
         }
     }
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
-        // Handle navigation view item clicks here.
         when (item.itemId) {
             R.id.nav_league_database -> {
-                Toast.makeText(this, "League Database clicked", Toast.LENGTH_SHORT).show()
+                leagueId?.let { fetchDatabaseStatus(it) }
             }
             R.id.nav_matchup -> {
-                Toast.makeText(this, "Matchup clicked", Toast.LENGTH_SHORT).show()
+                leagueNameText.text = "Matchup"
+                lastUpdatedText.text = ""
+                statusMessageText.visibility = View.GONE
+                progressBar.visibility = View.GONE
+                contentContainer.removeAllViews()
+                contentContainer.visibility = View.VISIBLE
+                val composeView = ComposeView(this).apply {
+                    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+                    setContent {
+                        MatchupScreen()
+                    }
+                }
+                contentContainer.addView(composeView)
             }
             R.id.nav_lineups -> {
                 Toast.makeText(this, "Lineups clicked", Toast.LENGTH_SHORT).show()
@@ -269,64 +271,36 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
 
     private fun formatUtcTimestamp(utcDateStr: String): String {
         return try {
-            // Input format from API: "2025-11-13T18:00:00Z" (or similar ISO 8601)
-            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-            inputFormat.timeZone = TimeZone.getTimeZone("UTC")
+            // 1. Try parsing the full format with microseconds and timezone offset
+            // "2025-11-18T11:28:30.484000+00:00"
+            // SSSSSS = microseconds, XXX = +00:00
+            val inputFormatWithMs = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", Locale.US)
+
+            // 2. Fallback for standard seconds
+            // "2025-11-18T11:28:30+00:00"
+            val inputFormatNoMs = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
 
             val date: Date? = try {
-                inputFormat.parse(utcDateStr)
-            } catch (e: ParseException) {
-                // Try with milliseconds if the first format fails
-                val inputFormatWithMs = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'", Locale.US)
-                inputFormatWithMs.timeZone = TimeZone.getTimeZone("UTC")
                 inputFormatWithMs.parse(utcDateStr)
+            } catch (e: ParseException) {
+                inputFormatNoMs.parse(utcDateStr)
             }
 
-            // Output format: "Nov 13, 2025 at 1:00 PM"
+            // Output format
             val outputFormat = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
-            // Convert to local time zone for display
             outputFormat.timeZone = TimeZone.getDefault()
 
             if (date != null) {
                 outputFormat.format(date)
             } else {
-                utcDateStr // Fallback
+                utcDateStr
             }
         } catch (e: Exception) {
-            Log.e("LeagueHomeActivity", "Date format error", e)
-            utcDateStr // Fallback
+            Log.e("LeagueHomeActivity", "Date format error for input: $utcDateStr", e)
+            utcDateStr
         }
     }
+
+
+
 }
-
-// --- [START] NEW HELPER CLASS ---
-/**
- * A custom OkHttp CookieJar that bridges with the Android WebView's
- * shared CookieManager. This allows OkHttp requests to send the
- * session cookies that were set inside the WebView.
- */
-class WebViewCookieJar : CookieJar {
-
-    private val cookieManager = CookieManager.getInstance()
-
-    override fun loadForRequest(url: HttpUrl): List<Cookie> {
-        val cookiesString = cookieManager.getCookie(url.toString())
-        if (cookiesString != null && cookiesString.isNotEmpty()) {
-            // Manually parse the cookie string
-            return cookiesString.split(";").mapNotNull { cookieString ->
-                Cookie.parse(url, cookieString.trim())
-            }
-        }
-        return emptyList()
-    }
-
-    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-        val urlString = url.toString()
-        cookies.forEach { cookie ->
-            cookieManager.setCookie(urlString, cookie.toString())
-        }
-        // Persist the cookies
-        cookieManager.flush()
-    }
-}
-// --- [END] NEW HELPER CLASS ---
