@@ -15,6 +15,8 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
     companion object {
         private const val SELECTED_TEAM_NAME = "selected_team_name"
         private const val SELECTED_WEEK = "selected_week"
+        private const val DATA_SOURCE = "data_source"
+        private const val SHOW_RAW_DATA = "show_raw_data"
     }
 
     fun saveSelectedTeam(teamName: String) {
@@ -31,5 +33,22 @@ class AppPreferences @Inject constructor(@ApplicationContext context: Context) {
 
     fun getSelectedWeek(): String? {
         return prefs.getString(SELECTED_WEEK, null)
+    }
+
+    fun saveDataSource(source: String) {
+        prefs.edit().putString(DATA_SOURCE, source).apply()
+    }
+
+    fun getDataSource(): String {
+        // Default to "projected" (Projected ROS)
+        return prefs.getString(DATA_SOURCE, "projected") ?: "projected"
+    }
+
+    fun saveShowRawData(show: Boolean) {
+        prefs.edit().putBoolean(SHOW_RAW_DATA, show).apply()
+    }
+
+    fun getShowRawData(): Boolean {
+        return prefs.getBoolean(SHOW_RAW_DATA, false)
     }
 }

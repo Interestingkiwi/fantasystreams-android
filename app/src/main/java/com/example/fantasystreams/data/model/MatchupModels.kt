@@ -56,7 +56,8 @@ data class MatchupStatsRequest(
     val team2Name: String,
     val categories: List<String>? = null,
     @SerializedName("simulated_moves")
-    val simulatedMoves: List<Any> = emptyList() // Use a specific class if you know the structure
+    val simulatedMoves: List<Any> = emptyList(),
+    val sourcing: String? = null // Added sourcing field
 )
 
 

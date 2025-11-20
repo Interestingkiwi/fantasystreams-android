@@ -1,24 +1,25 @@
+// filepath: interestingkiwi/fantasystreams-android/fantasystreams-android-42c52c9aee496104b96dd43261cf4f884eadaadf/app/src/main/java/com/example/fantasystreams/LeagueHomeActivity.kt
 package com.example.fantasystreams
 
 import android.os.Bundle
 import android.util.Log
-import android.view.MenuItem // <-- [ADD] Import MenuItem
+import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.content.Intent
-import android.widget.Toast // <-- [ADD] Import Toast
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.ActionBarDrawerToggle // <-- [ADD] Import
+import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.Toolbar // <-- [ADD] Import
-import androidx.core.view.GravityCompat // <-- [ADD] Import
+import androidx.appcompat.widget.Toolbar
+import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.drawerlayout.widget.DrawerLayout // <-- [ADD] Import
-import com.google.android.material.navigation.NavigationView //
+import androidx.drawerlayout.widget.DrawerLayout
+import com.google.android.material.navigation.NavigationView
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
@@ -37,7 +38,10 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.example.fantasystreams.ui.matchup.MatchupScreen
 import javax.inject.Inject
 import android.webkit.CookieManager
-
+import com.example.fantasystreams.ui.settings.SettingsScreen
+// [ADD] Imports for explicit owner provision
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 
 @AndroidEntryPoint
 class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -61,8 +65,6 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
         setContentView(R.layout.activity_league_home)
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.content_root)) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            // This now applies padding to the LinearLayout, pushing the Toolbar
-            // and content down, out from under the status bar.
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
@@ -70,7 +72,7 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
         toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
 
-        drawerLayout = findViewById(R.id.main) // This is the DrawerLayout
+        drawerLayout = findViewById(R.id.main)
         navigationView = findViewById(R.id.nav_view)
         navigationView.setNavigationItemSelectedListener(this)
 
@@ -84,7 +86,6 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
         drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
 
-        // Initialize views
         leagueNameText = findViewById(R.id.leagueNameText)
         lastUpdatedText = findViewById(R.id.lastUpdatedText)
         statusMessageText = findViewById(R.id.statusMessageText)
@@ -93,7 +94,6 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
         contentContainer = findViewById(R.id.contentContainer)
         updatePromptText = findViewById(R.id.updatePromptText)
 
-        // Get the league ID passed from MainActivity
         leagueId = intent.getStringExtra("league_id")
 
         if (leagueId == null) {
@@ -122,13 +122,20 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
                 progressBar.visibility = View.GONE
                 contentContainer.removeAllViews()
                 contentContainer.visibility = View.VISIBLE
-                val composeView = ComposeView(this).apply {
+
+                val composeView = ComposeView(this)
+                contentContainer.addView(composeView)
+
+                composeView.apply {
                     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
                     setContent {
-                        MatchupScreen()
+                        // [FIX] Explicitly provide the ViewModelStoreOwner (this Activity)
+                        // This prevents the crash when hiltViewModel() tries to find the owner
+                        CompositionLocalProvider(LocalViewModelStoreOwner provides this@LeagueHomeActivity) {
+                            MatchupScreen()
+                        }
                     }
                 }
-                contentContainer.addView(composeView)
             }
             R.id.nav_lineups -> {
                 Toast.makeText(this, "Lineups clicked", Toast.LENGTH_SHORT).show()
@@ -148,20 +155,35 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
             R.id.nav_season_history -> {
                 Toast.makeText(this, "Season History clicked", Toast.LENGTH_SHORT).show()
             }
-            R.id.nav_logout -> {
-                // 1. Clear all cookies (this logs the user out)
-                CookieManager.getInstance().removeAllCookies(null)
-                CookieManager.getInstance().flush()
+            R.id.nav_settings -> {
+                leagueNameText.text = "Settings"
+                lastUpdatedText.text = ""
+                statusMessageText.visibility = View.GONE
+                progressBar.visibility = View.GONE
+                contentContainer.removeAllViews()
+                contentContainer.visibility = View.VISIBLE
 
-                // 2. Go back to MainActivity (login screen)
-                val intent = Intent(this, MainActivity::class.java)
+                val composeView = ComposeView(this)
+                contentContainer.addView(composeView)
 
-                // 3. Set flags to clear the back-stack
-                // This prevents the user from hitting "back" and returning to this activity
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-
-                startActivity(intent)
-                finish() // Close this LeagueHomeActivity
+                composeView.apply {
+                    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+                    setContent {
+                        // [FIX] Explicitly provide the ViewModelStoreOwner (this Activity)
+                        CompositionLocalProvider(LocalViewModelStoreOwner provides this@LeagueHomeActivity) {
+                            SettingsScreen(
+                                onLogout = {
+                                    CookieManager.getInstance().removeAllCookies(null)
+                                    CookieManager.getInstance().flush()
+                                    val intent = Intent(context, MainActivity::class.java)
+                                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                    startActivity(intent)
+                                    finish()
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -176,8 +198,8 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
             super.onBackPressed()
         }
     }
+
     private fun fetchDatabaseStatus(leagueId: String) {
-        // Set UI to loading state
         runOnUiThread {
             progressBar.visibility = View.VISIBLE
             contentContainer.visibility = View.GONE
@@ -187,14 +209,11 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
             lastUpdatedText.text = "..."
         }
 
-        // Get the server URL from strings.xml
         val baseUrl = getString(R.string.server_url)
         val url = "$baseUrl/api/v1/league/$leagueId/database-status"
         Log.i("LeagueHomeActivity", "Fetching URL: $url")
 
-        val request = Request.Builder()
-            .url(url)
-            .build()
+        val request = Request.Builder().url(url).build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
@@ -204,15 +223,12 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
 
             override fun onResponse(call: Call, response: Response) {
                 val responseBody = response.body?.string()
-
                 if (!response.isSuccessful) {
                     Log.e("LeagueHomeActivity", "API request failed: ${response.code} $responseBody")
-                    // Handle specific error codes
                     when (response.code) {
                         401 -> showError("Not logged in. Please go back and log in again.")
                         403 -> showError("Forbidden. You don't have access to this league.")
                         404 -> {
-                            // This is the "exists: false" case
                             try {
                                 val json = JSONObject(responseBody ?: "{}")
                                 val message = json.optString("message", "Database not found.")
@@ -230,22 +246,16 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
                     }
                     return
                 }
-
-                // --- SUCCESS (200 OK) ---
                 try {
                     val json = JSONObject(responseBody ?: "{}")
                     Log.d("LeagueHomeActivity", "Received JSON: $json")
-
                     val leagueName = json.getString("league_name")
                     val lastUpdatedUtc = json.getString("last_updated_utc")
-
-                    // Format the date and update the UI
                     val formattedDate = formatUtcTimestamp(lastUpdatedUtc)
                     runOnUiThread {
                         progressBar.visibility = View.GONE
                         statusMessageText.visibility = View.GONE
                         contentContainer.visibility = View.VISIBLE
-
                         leagueNameText.text = leagueName
                         lastUpdatedText.text = getString(R.string.last_updated_prefix, formattedDate)
                     }
@@ -271,36 +281,19 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
 
     private fun formatUtcTimestamp(utcDateStr: String): String {
         return try {
-            // 1. Try parsing the full format with microseconds and timezone offset
-            // "2025-11-18T11:28:30.484000+00:00"
-            // SSSSSS = microseconds, XXX = +00:00
             val inputFormatWithMs = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", Locale.US)
-
-            // 2. Fallback for standard seconds
-            // "2025-11-18T11:28:30+00:00"
             val inputFormatNoMs = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
-
             val date: Date? = try {
                 inputFormatWithMs.parse(utcDateStr)
             } catch (e: ParseException) {
                 inputFormatNoMs.parse(utcDateStr)
             }
-
-            // Output format
             val outputFormat = SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
             outputFormat.timeZone = TimeZone.getDefault()
-
-            if (date != null) {
-                outputFormat.format(date)
-            } else {
-                utcDateStr
-            }
+            if (date != null) outputFormat.format(date) else utcDateStr
         } catch (e: Exception) {
             Log.e("LeagueHomeActivity", "Date format error for input: $utcDateStr", e)
             utcDateStr
         }
     }
-
-
-
 }

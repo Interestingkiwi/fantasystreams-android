@@ -1,3 +1,4 @@
+// filepath: interestingkiwi/fantasystreams-android/fantasystreams-android-42c52c9aee496104b96dd43261cf4f884eadaadf/app/src/main/java/com/example/fantasystreams/ui/matchup/MatchupScreen.kt
 package com.example.fantasystreams.ui.matchup
 
 import androidx.compose.foundation.background
@@ -29,6 +30,12 @@ fun MatchupScreen(
     viewModel: MatchupViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // FIX: Refresh data when this screen enters composition.
+    // This ensures we pick up any Data Source changes from Settings.
+    LaunchedEffect(Unit) {
+        viewModel.fetchMatchupStats()
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -131,6 +138,7 @@ fun MatchupScreen(
     }
 }
 
+// ... (Rest of the file: MatchupStatsTable, GameCountsTable, etc. remain the same)
 @Composable
 fun MatchupStatsTable(
     stats: MatchupStatsResponse,
@@ -138,16 +146,12 @@ fun MatchupStatsTable(
     team1Name: String,
     team2Name: String
 ) {
-    // Filter out sub-categories typically hidden in main view if you want exact web parity
-    // For now, we list all valid categories from the API
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .border(1.dp, Color.DarkGray, RoundedCornerShape(4.dp))
-            .background(Color(0xFF212121)) // Dark background
+            .background(Color(0xFF212121))
     ) {
-        // Header
         Row(
             modifier = Modifier
                 .background(Color(0xFF424242))
@@ -160,8 +164,6 @@ fun MatchupStatsTable(
             Text("T2 Proj", Modifier.weight(1f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = ColorTextPrimary, fontSize = MaterialTheme.typography.bodySmall.fontSize)
         }
 
-        // Filter out goalie sub-stats if they are just raw counts used for calculating GAA/SV%
-        // (Adjust this list based on your preference)
         val hiddenCats = listOf("GA", "TOI/G", "SA", "SV")
         val visibleCats = categories.filter { !hiddenCats.contains(it.category) }
 
@@ -172,23 +174,21 @@ fun MatchupStatsTable(
             val t2Live = stats.team2Stats.live[category] ?: 0.0
             val t2Row = stats.team2Stats.row[category] ?: 0.0
 
-            // Formatting logic
             fun fmt(valNum: Double): String {
                 return if (category == "SVpct") "%.3f".format(valNum)
                 else if (category == "GAA") "%.2f".format(valNum)
-                else if (valNum % 1.0 == 0.0) valNum.toInt().toString() // Integer if no decimal
+                else if (valNum % 1.0 == 0.0) valNum.toInt().toString()
                 else "%.1f".format(valNum)
             }
 
-            // Color Logic
             val isGaa = category == "GAA"
 
             fun getColor(val1: Double, val2: Double): Color {
                 if (val1 == val2) return ColorTie
                 if (isGaa) {
-                    return if (val1 < val2) ColorWin else ColorLoss // Lower is better
+                    return if (val1 < val2) ColorWin else ColorLoss
                 }
-                return if (val1 > val2) ColorWin else ColorLoss // Higher is better
+                return if (val1 > val2) ColorWin else ColorLoss
             }
 
             val t1LiveColor = getColor(t1Live, t2Live)
@@ -203,17 +203,12 @@ fun MatchupStatsTable(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(category, Modifier.weight(1f), fontWeight = FontWeight.Bold, color = ColorTextSecondary, fontSize = MaterialTheme.typography.bodySmall.fontSize)
-
-                // T1 Live
                 Text(fmt(t1Live), Modifier.weight(1f).background(t1LiveColor.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(2.dp), textAlign = TextAlign.Center, color = ColorTextPrimary, fontSize = MaterialTheme.typography.bodySmall.fontSize)
                 Spacer(Modifier.width(2.dp))
-                // T1 Row
                 Text(fmt(t1Row), Modifier.weight(1f).background(t1RowColor.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(2.dp), textAlign = TextAlign.Center, color = ColorTextPrimary, fontSize = MaterialTheme.typography.bodySmall.fontSize)
                 Spacer(Modifier.width(2.dp))
-                // T2 Live
                 Text(fmt(t2Live), Modifier.weight(1f).background(t2LiveColor.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(2.dp), textAlign = TextAlign.Center, color = ColorTextPrimary, fontSize = MaterialTheme.typography.bodySmall.fontSize)
                 Spacer(Modifier.width(2.dp))
-                // T2 Row
                 Text(fmt(t2Row), Modifier.weight(1f).background(t2RowColor.copy(alpha = 0.3f), RoundedCornerShape(4.dp)).padding(2.dp), textAlign = TextAlign.Center, color = ColorTextPrimary, fontSize = MaterialTheme.typography.bodySmall.fontSize)
             }
             HorizontalDivider(thickness = 0.5.dp, color = Color.DarkGray)
@@ -239,7 +234,6 @@ fun GameCountsTable(
             Text("Rem", Modifier.weight(1f), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
         }
 
-        // Row 1
         Row(Modifier.padding(8.dp)) {
             Text(team1Name, Modifier.weight(1.5f), color = ColorTextPrimary, maxLines = 1)
             Text(gameCounts.team1Total.toString(), Modifier.weight(1f), textAlign = TextAlign.Center, color = ColorTextPrimary)
@@ -247,7 +241,6 @@ fun GameCountsTable(
         }
         HorizontalDivider(thickness = 0.5.dp, color = Color.DarkGray)
 
-        // Row 2
         Row(Modifier.padding(8.dp)) {
             Text(team2Name, Modifier.weight(1.5f), color = ColorTextPrimary, maxLines = 1)
             Text(gameCounts.team2Total.toString(), Modifier.weight(1f), textAlign = TextAlign.Center, color = ColorTextPrimary)
@@ -259,7 +252,7 @@ fun GameCountsTable(
 @Composable
 fun UnusedRosterSpotsTable(unusedSpots: Map<String, Map<String, String>>) {
     val positions = listOf("C", "LW", "RW", "D", "G")
-    val sortedDays = unusedSpots.keys.sorted() // Basic alpha sort. Improve if keys become actual dates.
+    val sortedDays = unusedSpots.keys.sorted()
 
     Column(
         modifier = Modifier
@@ -280,8 +273,6 @@ fun UnusedRosterSpotsTable(unusedSpots: Map<String, Map<String, String>>) {
                 Text(day, Modifier.weight(1f), color = ColorTextPrimary, fontWeight = FontWeight.Medium)
                 positions.forEach { pos ->
                     val value = spotsForDay[pos] ?: "-"
-
-                    // Check if value is numeric and > 0 to highlight green
                     val isPositive = try {
                         value.replace("*", "").toInt() > 0
                     } catch(e: Exception) { false }

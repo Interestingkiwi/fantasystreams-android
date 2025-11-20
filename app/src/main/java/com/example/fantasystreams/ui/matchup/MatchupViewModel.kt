@@ -133,10 +133,14 @@ class MatchupViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingStats = true, errorMessage = null) }
             try {
+                // Fetch the current data source setting
+                val sourcing = prefs.getDataSource()
+
                 val request = MatchupStatsRequest(
                     week = week,
                     team1Name = team1,
-                    team2Name = team2
+                    team2Name = team2,
+                    sourcing = sourcing // Pass to API
                 )
                 val response = apiService.getMatchupStats(request)
                 if (response.isSuccessful && response.body() != null) {
