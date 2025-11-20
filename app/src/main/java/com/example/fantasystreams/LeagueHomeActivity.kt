@@ -39,7 +39,7 @@ import com.example.fantasystreams.ui.matchup.MatchupScreen
 import javax.inject.Inject
 import android.webkit.CookieManager
 import com.example.fantasystreams.ui.settings.SettingsScreen
-// [ADD] Imports for explicit owner provision
+import com.example.fantasystreams.ui.lineup.LineupScreen
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 
@@ -110,6 +110,7 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
             }
         }
     }
+
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.nav_league_database -> {
@@ -129,8 +130,6 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
                 composeView.apply {
                     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
                     setContent {
-                        // [FIX] Explicitly provide the ViewModelStoreOwner (this Activity)
-                        // This prevents the crash when hiltViewModel() tries to find the owner
                         CompositionLocalProvider(LocalViewModelStoreOwner provides this@LeagueHomeActivity) {
                             MatchupScreen()
                         }
@@ -138,7 +137,24 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
                 }
             }
             R.id.nav_lineups -> {
-                Toast.makeText(this, "Lineups clicked", Toast.LENGTH_SHORT).show()
+                leagueNameText.text = "Lineups"
+                lastUpdatedText.text = ""
+                statusMessageText.visibility = View.GONE
+                progressBar.visibility = View.GONE
+                contentContainer.removeAllViews()
+                contentContainer.visibility = View.VISIBLE
+
+                val composeView = ComposeView(this)
+                contentContainer.addView(composeView)
+
+                composeView.apply {
+                    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+                    setContent {
+                        CompositionLocalProvider(LocalViewModelStoreOwner provides this@LeagueHomeActivity) {
+                            LineupScreen()
+                        }
+                    }
+                }
             }
             R.id.nav_free_agents -> {
                 Toast.makeText(this, "Free Agents clicked", Toast.LENGTH_SHORT).show()
@@ -169,7 +185,6 @@ class LeagueHomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
                 composeView.apply {
                     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
                     setContent {
-                        // [FIX] Explicitly provide the ViewModelStoreOwner (this Activity)
                         CompositionLocalProvider(LocalViewModelStoreOwner provides this@LeagueHomeActivity) {
                             SettingsScreen(
                                 onLogout = {
